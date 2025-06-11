@@ -18,11 +18,7 @@ def is_journal_article(xml_data):
                 return True
     return False
 
-def get_references(pubmed_id):
-    handle = Entrez.efetch(db="pubmed", id=pubmed_id, retmode="xml")
-    xml_data = handle.read()
-    handle.close()
-
+def get_references(xml_data):
     reference_pmids = []
     root = ET.fromstring(xml_data)
     for ref in root.findall(".//Reference"):
@@ -45,8 +41,11 @@ def build_sample_from_range(id_2020, id_2025, sample_size=10, output_dir="output
 
         while True:
             try:
-                reference_pmids = get_references(pmid)
-                if len(reference_pmids) >= 5:
+                handle = Entrez.efetch(db="pubmed", id=pmid, retmode="xml")
+                xml_data = handle.read()
+                handle.close()
+                reference_pmids = get_references(xml_data)
+                if len(reference_pmids) >= 5 and is_journal_article(xml_data):
                     valid_pmids.append(pmid)
                     refs.append(len(reference_pmids))
                     break
