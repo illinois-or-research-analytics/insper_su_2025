@@ -40,10 +40,16 @@ def get_references(xml_data, id_types):
     count = 0
     root = ET.fromstring(xml_data)
     for ref in root.findall(".//Reference"):
-        article_id = ref.find(".//ArticleId")
-        if article_id is not None:
-            count += 1
-    return count
+        for article_id in ref.findall(".//ArticleId"):
+            id_type = article_id.attrib.get("IdType", "N/A")
+
+            if article_id is not None:
+                count += 1
+            if id_type not in id_types:
+                id_types[id_type] = 1
+            else:
+                id_types[id_type] += 1
+    return count, id_types
 
 
 @click.command(
@@ -82,11 +88,12 @@ def build_sample_from_range(id_2020, id_2025, sample_size, output_dir, filename)
     """
     valid_pmids = []
     refs = []
-    id_types = set()
+    id_types = {}
 
     # Ensure output directory exists
     os.makedirs(output_dir, exist_ok=True)
     filename = filename + f'_{sample_size}.csv'
+    id_type_file = f'id_types_{filename}.csv'
     output_path = os.path.join(output_dir, filename)
 
     # Sample articles until the desired number of valid articles is collected
@@ -99,7 +106,7 @@ def build_sample_from_range(id_2020, id_2025, sample_size, output_dir, filename)
                 xml_data = handle.read()
                 handle.close()
 
-                reference_pmids = get_references(xml_data, id_types)
+                reference_pmids, id_types = get_references(xml_data, id_types)
 
                 # Accept only if the article has at least 5 references
                 if reference_pmids >= 5 and is_journal_article(xml_data) and pmid not in valid_pmids:
@@ -120,7 +127,12 @@ def build_sample_from_range(id_2020, id_2025, sample_size, output_dir, filename)
     })
     df.to_csv(output_path, index=False)
 
-    return df
+    df_id_types = pd.DataFrame.from_dict(id_types, orient='index', columns=['count'])
+    df_id_types.index.name = 'type'
+    df_id_types.reset_index(inplace=True)
+    df_id_types.to_csv(os.path.join(output_dir, id_type_file), index=False)
+
+    return 
 
 
 if __name__ == "__main__":
