@@ -7,7 +7,7 @@ import xml.etree.ElementTree as ET
 from tqdm import tqdm
 from Bio import Entrez
 
-Entrez.email = "ecc7@illinois.edu"
+Entrez.email = "estherccr@al.insper.edu.br"
 
 def is_journal_article(xml_data):
     """
@@ -122,7 +122,7 @@ def build_sample_from_range(id_2020, id_2025, sample_size, output_dir, filename)
 
     # Save results to CSV in format expected by the ABM
     df = pd.DataFrame({
-        'node_id': valid_pmids,
+        '#node_id': valid_pmids,
         'out_degree': refs
     })
     df.to_csv(output_path, index=False)
