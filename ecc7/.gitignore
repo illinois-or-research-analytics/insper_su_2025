@@ -1,0 +1,3 @@
+xml_cache
+# Ignore macOS system files
+.DS_Store
