@@ -222,6 +222,16 @@ def get_metrics(outaux, clustering_metrics, leiden_clustering) -> dict:
     df_clustering_metrics = df_clustering_metrics.merge(metrics_df, on='cluster_id', how='left')
     return df_clustering_metrics
 
+def explode_superstars(df_ss: pd.DataFrame) -> pd.DataFrame:
+    explode_cols = [
+        'ss_id', 'ss_fit', 'cluster_id', 'size',
+        'intra_edges', 'boundary_edges',
+        'normalized_density', 'mincut'
+    ]
+    for col in explode_cols:
+        df_ss = df_ss.explode(col).reset_index(drop=True)
+    return df_ss
+
 @click.command()
 @click.option('--experiments-dirs', required=True, multiple=True,
               type=click.Path(exists=True, path_type=Path),
@@ -372,6 +382,7 @@ def cli(experiments_dirs, output, ss_out, full_pipeline=False, clustering_name="
     df.to_csv(output, index=False)
     if len(all_ss) > 0:
             df_ss_clusters = pd.DataFrame(all_ss)
+            df_ss_clusters = explode_superstars(df_ss_clusters)
             g = str(gamma).replace('.', '_')
             df_ss_clusters.to_csv(ss_out, index=False)
             print(f"[DEBUG] Superstar clusters written to {ss_out}")
