@@ -222,16 +222,6 @@ def get_metrics(outaux, clustering_metrics, leiden_clustering) -> dict:
     df_clustering_metrics = df_clustering_metrics.merge(metrics_df, on='cluster_id', how='left')
     return df_clustering_metrics
 
-def explode_superstars(df_ss: pd.DataFrame) -> pd.DataFrame:
-    explode_cols = [
-        'ss_id', 'ss_fit', 'cluster_id', 'size',
-        'intra_edges', 'boundary_edges',
-        'normalized_density', 'mincut'
-    ]
-    for col in explode_cols:
-        df_ss = df_ss.explode(col).reset_index(drop=True)
-    return df_ss
-
 @click.command()
 @click.option('--experiments-dirs', required=True, multiple=True,
               type=click.Path(exists=True, path_type=Path),
@@ -372,19 +362,19 @@ def cli(experiments_dirs, output, ss_out, full_pipeline=False, clustering_name="
         ss_clusters = superstar_clusters(outaux_path, clustering_path, out_path)
         if ss_clusters is not None:
             parts = str(exp_dir).split("/")
-            ss_clusters['exp_name'] = parts[-1]
-            ss_clusters['gamma'] = gamma
-            all_ss.append(ss_clusters)
+            df_result = pd.DataFrame(ss_clusters)
+            df_result["experiment"] = parts[-1]
+            all_ss.append(df_result)
         all_metrics.append(metrics)
 
     df = pd.DataFrame(all_metrics)
     df = df[["exp_name", "node_coverage", "min", "q1", "median", "q3", "p90", "max", "singletons", "gcc", "alcc"]]
     df.to_csv(output, index=False)
     if len(all_ss) > 0:
-            df_ss_clusters = pd.DataFrame(all_ss)
-            df_ss_clusters = explode_superstars(df_ss_clusters)
+            final_ss = pd.concat(all_ss, ignore_index=True)
             g = str(gamma).replace('.', '_')
-            df_ss_clusters.to_csv(ss_out, index=False)
+            final_ss["gamma"] = g
+            final_ss.to_csv(ss_out, index=False)
             print(f"[DEBUG] Superstar clusters written to {ss_out}")
     print(f"Summary written to {output}")
 
