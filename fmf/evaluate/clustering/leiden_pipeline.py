@@ -353,6 +353,7 @@ def cli(experiments_dirs, output, ss_out, full_pipeline=False, clustering_name="
             "normalized_density",
             "mincut"
         ])
+        df_temp['cluster_id'] = df_temp['cluster_id'].astype(int)
         df_clust = get_metrics(outaux_path, df_temp, clustering_path)
         out_path = exp_dir / "output" / f"{metrics_name}"
         df_clust.to_csv(out_path, index=False)
