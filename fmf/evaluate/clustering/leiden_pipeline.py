@@ -110,7 +110,7 @@ def compute_nS(com):
 def compute_normalized_density(neighbors, com, m=None, n=None):
     """Compute the normalized density of the community."""
     m = compute_mS(neighbors, com) if m is None else m
-    n = compute_nS(neighbors, com) if n is None else n
+    n = compute_nS(com) if n is None else n
     return 2 * m / (n * (n - 1)) if m > 0 else 0.0
 
 def compute_mincut(neighbors, com):
@@ -165,11 +165,11 @@ def get_metrics(outaux, clustering_metrics, leiden_clustering) -> dict:
     df_outaux = pd.read_csv(outaux)
     df_outaux = df_outaux.set_index('node_id') 
 
-    df_clustering_metrics = clustering_metrics
+    df_clustering_metrics = clustering_metrics.copy()
     df_leiden_clustering = pd.read_csv(leiden_clustering)
 
     metrics = {}
-
+    cluster_to_nodes = df_leiden_clustering.groupby('cluster_id')['node_id'].apply(list).to_dict()
     cluster_ids = df_clustering_metrics['cluster_id'].unique()
     for cluster_id in cluster_ids:
         recency_w = 0
@@ -179,7 +179,7 @@ def get_metrics(outaux, clustering_metrics, leiden_clustering) -> dict:
         seeds = 0
         agents = 0
 
-        node_ids = df_leiden_clustering[df_leiden_clustering['cluster_id'] == cluster_id]['node_id'].tolist()
+        node_ids = cluster_to_nodes.get(cluster_id, [])
 
         for node_id in node_ids:
             if node_id in df_outaux.index:
@@ -198,11 +198,11 @@ def get_metrics(outaux, clustering_metrics, leiden_clustering) -> dict:
             avg_pa_w = None
             avg_fitness_w = None
         else:
-            size = len(node_ids)
             avg_recency_w = f"{float(recency_w / agents):.4f}"
             avg_pa_w = f"{float(pa_w / agents):.4f}"
             avg_fitness_w = f"{float(fitness_w / agents):.4f}"
 
+        size = len(node_ids)
         avg_fitness = f"{float(fitness / size):.4f}"
             
 
@@ -360,6 +360,9 @@ def cli(experiments_dirs, output, ss_out, full_pipeline=False, clustering_name="
         #end min
         ss_clusters = superstar_clusters(outaux_path, clustering_path, out_path)
         if ss_clusters is not None:
+            parts = str(exp_dir).split("/")
+            ss_clusters['exp_name'] = parts[-1]
+            ss_clusters['gamma'] = gamma
             all_ss.append(ss_clusters)
         all_metrics.append(metrics)
 
