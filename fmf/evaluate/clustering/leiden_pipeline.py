@@ -151,7 +151,7 @@ def superstar_clusters(outaux: Path, clustering: Path, clustering_metrics: Path)
     )
     dict_superstar = {
         "ss_id":               df_ss["node_id"].tolist(),
-        "ss_fit":              df_ss["ss_fit"].tolist(),
+        "ss_fit":              df_ss[""].tolist(),
         "cluster_id":          df_ss["cluster_id"].tolist(),
         "size":                df_ss["size"].tolist(),
         "intra_edges":         df_ss["intra_edges"].tolist(),
