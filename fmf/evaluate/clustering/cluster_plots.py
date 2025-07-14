@@ -2,6 +2,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import click
 from pathlib import Path
+import numpy as np
 
 def save_table(df: pd.DataFrame,
                filename: str = "table.png",
@@ -30,6 +31,7 @@ def save_table(df: pd.DataFrame,
     plt.close(fig)
 
 def get_metrics_by_id(exp_path, cluster_id, gamma, ss_ids):
+    exp_path = str(exp_path)
     gamma_no_point = str(gamma).replace(".", "")
     exp = "ss_"
     exp_name = exp_path.split("/")[-1]
@@ -38,7 +40,7 @@ def get_metrics_by_id(exp_path, cluster_id, gamma, ss_ids):
     else:
         exp += "sa_"
 
-    if "er" in exp:
+    if "er" in exp_name:
         exp += "er"
     else:
         exp += "sj"
@@ -46,51 +48,112 @@ def get_metrics_by_id(exp_path, cluster_id, gamma, ss_ids):
 
     clustering_metrics_file = "clustering_metrics_" + str(gamma_no_point) + ".csv"
     leiden_clustering_file = "leidenClustering_" + str(gamma) + ".csv"
+    output_aux_file = "output.aux"
+
     df_metrics = pd.read_csv(f"{exp_path}/output/{clustering_metrics_file}")
     df_leiden = pd.read_csv(f"{exp_path}/output/{leiden_clustering_file}")
-
+    df_aux = pd.read_csv(f"{exp_path}/output/{output_aux_file}", low_memory=False)
 
     df_leiden = df_leiden[df_leiden["cluster_id"] == cluster_id]
     df_leiden = df_leiden[df_leiden["node_id"].isin(ss_ids)]
+    ids_leiden = df_leiden["node_id"].to_list()
+    df_aux = df_aux[df_aux["node_id"].isin(ids_leiden)]
+    fit_list = df_aux["fit_peak_value"].to_list()
+    string = ""
+    for fit in fit_list:
+        if fit == 10000:
+            string += "10k "
+        elif fit == 100000:
+            string += "100k "
+        elif fit == 1000000:
+            string += "1M "
+
     num_ss = df_leiden.shape[0]
 
     df_metrics = df_metrics[df_metrics["cluster_id"] == cluster_id]
     df_metrics.drop(columns=["intra_edges", "boundary_edges", "normalized_density"], inplace=True)
     df_metrics["experiment"] = exp
     df_metrics["ss_count"] = num_ss
+    df_metrics["ss_fit"] = string
+    
 
     dict_metrics = df_metrics.to_dict(orient="records")
     return dict_metrics
 
-def get_pheno_network(edgelist_path, aux_path):
+def get_pheno_network_ss(edgelist_path, aux_path):
 
     df_edge_list = pd.read_csv(edgelist_path)
-    df_aux = pd.read_csv(aux_path)
+    df_aux = pd.read_csv(aux_path, low_memory=False)
     weights = {}
 
-    ss_ids = df_aux[df_aux["fit_peak_value"] > 1000]["node_id"].to_list()
-    for id in ss_ids:
+    target_ids = df_aux[df_aux["fit_peak_value"] > 1000]["node_id"].to_list()
+    for id_ in target_ids:
 
-        citings_ids = df_edge_list[df_edge_list["target"] == id]["#source"].tolist()
+        citings_ids = df_edge_list[df_edge_list["target"] == id_]["#source"].tolist()
 
         filtered_aux = df_aux[df_aux["node_id"].isin(citings_ids)]
+        filtered_aux = filtered_aux[filtered_aux["type"] == "agent"]
 
         average_pa_weight_net = filtered_aux.groupby("year")["pa_weight"].mean().reset_index()
         average_rec_weight_net = filtered_aux.groupby("year")["rec_weight"].mean().reset_index()
         average_fit_weight_net = filtered_aux.groupby("year")["fit_weight"].mean().reset_index()
 
-        weights[str(filtered_aux[filtered_aux["node_id"] == id]["fit_peak_value"])] = {
+        ss_fit = df_aux[df_aux["node_id"] == id_]["fit_peak_value"].values[0]
+        weights[str(ss_fit)] = {
             "pa_weight": average_pa_weight_net,
             "rec_weight": average_rec_weight_net,
             "fit_weight": average_fit_weight_net
         }
+    return weights
 
+# TODO: review
+def get_pheno_network_no_ss(edgelist_path, aux_path):
+    df_edge_list = pd.read_csv(edgelist_path)
+    df_aux = pd.read_csv(aux_path, low_memory=False)
+    weights = {}
+    targets = {}
+
+    top_ids = df_aux.nlargest(10, 'fit_peak_value')['node_id'].tolist()
+    mid_ids = df_aux[df_aux['fit_peak_value'] == 100]['node_id'].tolist()
+    low_ids = df_aux[df_aux['fit_peak_value'] == 10]['node_id'].tolist()
+
+    targets["top_10"] = top_ids[:10]
+    targets["mid_10_fit_100"] = mid_ids[:10]
+    targets["low_10_fit_10"] = low_ids[:10]
+
+    for key, ids in targets.items():
+        mean_pa_weight = []
+        mean_rec_weight = []
+        mean_fit_weight = []
+        for id_ in ids:
+            citings_ids = df_edge_list[df_edge_list["target"] == id_]["#source"].tolist()
+
+            filtered_aux = df_aux[df_aux["node_id"].isin(citings_ids)]
+            filtered_aux = filtered_aux[filtered_aux["type"] == "agent"]
+
+            average_pa_weight_net = filtered_aux.groupby("year")["pa_weight"].mean().reset_index()
+            average_rec_weight_net = filtered_aux.groupby("year")["rec_weight"].mean().reset_index()
+            average_fit_weight_net = filtered_aux.groupby("year")["fit_weight"].mean().reset_index()
+
+            mean_pa_weight.append(average_pa_weight_net)
+            mean_rec_weight.append(average_rec_weight_net)
+            mean_fit_weight.append(average_fit_weight_net)
+
+        
+        pa_concat = pd.concat(mean_pa_weight, ignore_index=True)
+        rec_concat = pd.concat(mean_rec_weight, ignore_index=True)
+        fit_concat = pd.concat(mean_fit_weight, ignore_index=True)
+        weights[key] = {
+            "pa_weight": pa_concat.groupby("year")["pa_weight"].mean().reset_index(),
+            "rec_weight": rec_concat.groupby("year")["rec_weight"].mean().reset_index(),
+            "fit_weight": fit_concat.groupby("year")["fit_weight"].mean().reset_index()
+        }
     return weights
 
 def get_pheno_cluster(leidenClustering_path, aux_path):
 
     df_leiden = pd.read_csv(leidenClustering_path)
-    df_aux = pd.read_csv(aux_path)
+    df_aux = pd.read_csv(aux_path, low_memory=False)
     weights = {}
 
     ss_ids = df_aux[df_aux["fit_peak_value"] > 1000]["node_id"].to_list()
@@ -114,7 +177,6 @@ def get_pheno_cluster(leidenClustering_path, aux_path):
 
     return weights, ss_ids
 
-
 @click.command()
 @click.option(
     "--exp-dirs", "-e",
@@ -129,19 +191,30 @@ def get_pheno_cluster(leidenClustering_path, aux_path):
     required=True,
     help="Gamma value for the leidenClustering files"
 )
-def cli(exp_dirs, gamma):
+@click.option(    "--ss", "-s",
+    is_flag=True,
+    required=True,
+    help="Flag to indicate if the experiment is with ss agents"
+)
+def cli(exp_dirs, gamma, ss):
 
     for exp_path in exp_dirs:
 
-        leiden_clustering_file = exp_path / "output" / "leidenClustering_" + str(gamma) + ".csv"
+        leiden_clustering_file = exp_path / "output" / f"leidenClustering_{str(gamma)}.csv"
         edgelist_path = exp_path / "output" / "output.edgelist"
         aux_path = exp_path / "output" / "output.aux"
 
-        net_weights = get_pheno_network(edgelist_path, aux_path)
+        # TODO: review
+        if ss:
+            net_weights = get_pheno_network_ss(edgelist_path, aux_path)
+        else:
+            net_weights = get_pheno_network_no_ss(edgelist_path, aux_path)
+
         cluster_weights, ss_ids = get_pheno_cluster(leiden_clustering_file, aux_path)
 
         n = len(net_weights)
         fig, axes = plt.subplots(1, n, figsize=(5 * n, 4), sharey=True)
+        axes = np.atleast_1d(axes)
 
         for ax, (key, value) in zip(axes, net_weights.items()):
             pa = value["pa_weight"].sort_values("year")
@@ -157,14 +230,16 @@ def cli(exp_dirs, gamma):
             ax.grid(True)
 
         axes[0].set_ylabel("Average weight")
-        fig.legend(loc="upper center", ncol=3)
+        handles, labels = axes[0].get_legend_handles_labels()
+        fig.legend(handles, labels, loc="upper center", ncol=3, bbox_to_anchor=(0.5, 0.92))
         fig.suptitle("AVG pheno weight for citing ss agents in the network", fontsize=16)
         plt.tight_layout(rect=[0, 0, 1, 0.95])
-        plt.savefig("all_weights.png", dpi=300)
+        plt.savefig("all_weights_net.png", dpi=300)
         plt.close(fig)
 
         n = len(cluster_weights)
         fig, axes = plt.subplots(1, n, figsize=(5 * n, 4), sharey=True)
+        axes = np.atleast_1d(axes)
 
         for ax, (key, value) in zip(axes, cluster_weights.items()):
             pa = value["pa_weight"].sort_values("year")
@@ -180,22 +255,24 @@ def cli(exp_dirs, gamma):
             ax.grid(True)
 
         axes[0].set_ylabel("Average weight")
-        fig.legend(loc="upper center", ncol=3)
+        handles, labels = axes[0].get_legend_handles_labels()
+
+        fig.legend(handles, labels, loc="upper center", ncol=3, bbox_to_anchor=(0.5, 0.92))
         fig.suptitle("AVG pheno weight for citing agents in ss clusters", fontsize=16)
         plt.tight_layout(rect=[0, 0, 1, 0.95])
-        plt.savefig("all_weights.png", dpi=300)
+        plt.savefig("all_weights_cluster.png", dpi=300)
         plt.close(fig)
 
             
         used_cluster_ids = []
         df = pd.DataFrame()
         for key, value in cluster_weights.items():
-            used_cluster_ids.append(key)
             if key in used_cluster_ids:
                 continue
+            used_cluster_ids.append(key)
             dic = get_metrics_by_id(exp_path, int(key), gamma, ss_ids)
             df = pd.concat([df, pd.DataFrame(dic)], ignore_index=True)
-            save_table(df)
+        save_table(df)
 
 if __name__ == "__main__":
     cli()
