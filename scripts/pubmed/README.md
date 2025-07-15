@@ -1,4 +1,4 @@
-# PubMed Sampling and Author Country Extraction Scripts
+# PubMed scripts
 
 This repository contains two Python scripts designed to interact with PubMed through the NCBI Entrez API (via Biopython) for bibliometric studies:
 
