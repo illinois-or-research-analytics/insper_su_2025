@@ -80,14 +80,14 @@ def get_metrics_by_id(exp_path, cluster_id, gamma, ss_ids):
     dict_metrics = df_metrics.to_dict(orient="records")
     return dict_metrics
 
-def get_pheno_network(edgelist_path, aux_path):
+def get_pheno_network_ss(edgelist_path, aux_path):
 
     df_edge_list = pd.read_csv(edgelist_path)
     df_aux = pd.read_csv(aux_path, low_memory=False)
     weights = {}
 
-    ss_ids = df_aux[df_aux["fit_peak_value"] > 1000]["node_id"].to_list()
-    for id_ in ss_ids:
+    target_ids = df_aux[df_aux["fit_peak_value"] > 1000]["node_id"].to_list()
+    for id_ in target_ids:
 
         citings_ids = df_edge_list[df_edge_list["target"] == id_]["#source"].tolist()
 
@@ -104,6 +104,52 @@ def get_pheno_network(edgelist_path, aux_path):
             "rec_weight": average_rec_weight_net,
             "fit_weight": average_fit_weight_net
         }
+    return weights
+
+# TODO: review
+def get_pheno_network_no_ss(edgelist_path, aux_path):
+    df_edge_list = pd.read_csv(edgelist_path)
+    df_aux = pd.read_csv(aux_path, low_memory=False)
+    weights = {}
+    targets = {}
+
+    top_ids = df_aux.nlargest(10, 'fit_peak_value')['node_id'].tolist()
+    mid_ids = df_aux[df_aux['fit_peak_value'] == 100]['node_id'].tolist()
+    low_ids = df_aux[df_aux['fit_peak_value'] == 10]['node_id'].tolist()
+
+    targets["low_10_fit_10"] = low_ids[:10]
+    targets["mid_10_fit_100"] = mid_ids[:10]
+    targets["top_10"] = top_ids[:10]
+    print(len(targets["top_10"]), len(targets["mid_10_fit_100"]), len(targets["low_10_fit_10"]))
+
+    for key, ids in targets.items():
+        mean_pa_weight = []
+        mean_rec_weight = []
+        mean_fit_weight = []
+        for id_ in ids:
+            citings_ids = df_edge_list[df_edge_list["target"] == id_]["#source"].tolist()
+
+            filtered_aux = df_aux[df_aux["node_id"].isin(citings_ids)]
+            filtered_aux = filtered_aux[filtered_aux["type"] == "agent"]
+
+            average_pa_weight_net = filtered_aux.groupby("year")["pa_weight"].mean().reset_index()
+            average_rec_weight_net = filtered_aux.groupby("year")["rec_weight"].mean().reset_index()
+            average_fit_weight_net = filtered_aux.groupby("year")["fit_weight"].mean().reset_index()
+
+            mean_pa_weight.append(average_pa_weight_net)
+            mean_rec_weight.append(average_rec_weight_net)
+            mean_fit_weight.append(average_fit_weight_net)
+
+        
+        pa_concat = pd.concat(mean_pa_weight, ignore_index=True)
+        rec_concat = pd.concat(mean_rec_weight, ignore_index=True)
+        fit_concat = pd.concat(mean_fit_weight, ignore_index=True)
+        weights[key] = {
+            "pa_weight": pa_concat.groupby("year")["pa_weight"].mean().reset_index(),
+            "rec_weight": rec_concat.groupby("year")["rec_weight"].mean().reset_index(),
+            "fit_weight": fit_concat.groupby("year")["fit_weight"].mean().reset_index()
+        }
+    
     return weights
 
 def get_pheno_cluster(leidenClustering_path, aux_path):
@@ -133,7 +179,6 @@ def get_pheno_cluster(leidenClustering_path, aux_path):
 
     return weights, ss_ids
 
-
 @click.command()
 @click.option(
     "--exp-dirs", "-e",
@@ -148,7 +193,12 @@ def get_pheno_cluster(leidenClustering_path, aux_path):
     required=True,
     help="Gamma value for the leidenClustering files"
 )
-def cli(exp_dirs, gamma):
+@click.option(    "--ss", "-s",
+    is_flag=True,
+    default=False,
+    help="Flag to indicate if the experiment is with ss agents"
+)
+def cli(exp_dirs, gamma, ss=False):
 
     for exp_path in exp_dirs:
 
@@ -156,7 +206,12 @@ def cli(exp_dirs, gamma):
         edgelist_path = exp_path / "output" / "output.edgelist"
         aux_path = exp_path / "output" / "output.aux"
 
-        net_weights = get_pheno_network(edgelist_path, aux_path)
+        # TODO: review
+        if ss:
+            net_weights = get_pheno_network_ss(edgelist_path, aux_path)
+        else:
+            net_weights = get_pheno_network_no_ss(edgelist_path, aux_path)
+
         cluster_weights, ss_ids = get_pheno_cluster(leiden_clustering_file, aux_path)
 
         n = len(net_weights)
@@ -171,19 +226,27 @@ def cli(exp_dirs, gamma):
             ax.plot(pa["year"], pa["pa_weight"],      label="Avg PA weight")
             ax.plot(rec["year"], rec["rec_weight"],   label="Avg Recency weight")
             ax.plot(fit["year"], fit["fit_weight"],   label="Avg Fitness weight")
-
-            ax.set_title(f"ss_fit = {key}")
+            if ss:
+                ax.set_title(f"ss_fit = {key}")
+            else:
+                ax.set_title(f"fit of agents = {key}")
             ax.set_xlabel("Year")
             ax.grid(True)
 
         axes[0].set_ylabel("Average weight")
         handles, labels = axes[0].get_legend_handles_labels()
         fig.legend(handles, labels, loc="upper center", ncol=3, bbox_to_anchor=(0.5, 0.92))
-        fig.suptitle("AVG pheno weight for citing ss agents in the network", fontsize=16)
+        if ss:
+            fig.suptitle("AVG pheno weight for citing ss agents in the network", fontsize=16)
+        else:
+            fig.suptitle("AVG pheno weight for citing agents in the network", fontsize=16)
         plt.tight_layout(rect=[0, 0, 1, 0.95])
         plt.savefig("all_weights_net.png", dpi=300)
         plt.close(fig)
-
+         
+        if len(cluster_weights) == 0:
+            print("No clusters found for the given parameters.")
+            continue
         n = len(cluster_weights)
         fig, axes = plt.subplots(1, n, figsize=(5 * n, 4), sharey=True)
         axes = np.atleast_1d(axes)
