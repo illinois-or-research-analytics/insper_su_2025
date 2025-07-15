@@ -6,15 +6,11 @@ Compute bibliographic coupling from an edgelist CSV file. The bibliographic coup
 **Formula**  
 Let E be the set of directed edges (i, k) in the citation graph. For each source node i, define:
 
-\[
-T_i = \{\,k \mid (i, k) \in E\}.
-\]
+T_i = { k | (i, k) in E }
 
 Then the bibliographic coupling strength between nodes i and j is:
 
-\[
-\mathrm{Biblio\text{-}strength}(i,j) = \lvert\,T_i \cap T_j\,\rvert.
-\]
+Biblio-strength(i, j) = |T_i ∩ T_j|
 
 ---
 
