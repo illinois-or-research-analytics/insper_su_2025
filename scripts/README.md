@@ -10,4 +10,22 @@ Each subdirectory holds scripts related to a specific component or analysis, inc
 - `co_citation` - Scripts for co-citation analysis
 - `pubmed` - Scripts for PubMed data handling
 
+
+## Installation & Setup
+
+It’s recommended to use a Python virtual environment.
+
+```bash
+# Create a virtual environment
+python -m venv venv
+
+# Activate it
+source venv/bin/activate    # On Mac/Linux
+venv\Scripts\activate       # On Windows
+
+# Install dependencies
+pip install -r requirements.txt
+
+```
+
 Use these scripts to run the analyses and generate outputs as needed.

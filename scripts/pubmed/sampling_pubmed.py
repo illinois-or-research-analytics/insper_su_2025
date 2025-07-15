@@ -125,5 +125,4 @@ def build_sample_from_range(id_2020, id_2025, sample_size, output_dir, filename)
 if __name__ == "__main__":
     build_sample_from_range()
 
-# id_2020 = 31901868
-# id_2025 = 
+
