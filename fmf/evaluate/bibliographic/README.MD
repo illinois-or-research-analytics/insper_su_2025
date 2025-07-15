@@ -35,7 +35,7 @@ module load python3/3.11.0
 source venv/bin/activate
 pip install -r requirements.txt
 
-python bibliographic_coupling.py \
+python bibliographic.py \
   --edgelist_path /path/to/edgelist.csv \
   --csv_path      /path/to/output.csv \
   [--output_aux_path /path/to/aux.csv] \
