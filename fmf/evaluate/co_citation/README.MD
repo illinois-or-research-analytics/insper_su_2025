@@ -8,7 +8,7 @@ Compute co‑citation strength from an edgelist CSV file. The co‑citation stre
 |-------------------|------------------------------------------------------------------|
 | `source1`         | ID of the first target node (*i*)                                |
 | `source2`         | ID of the second target node (*j*)                               |
-| `Co-strength`     | Co‑citation strength \(\lvert S_i \cap S_j\rvert\)               |
+| `Co-strength`     | Co‑citation strength               |
 | `type1`           | `type` metadata for `source1` (if `--output_aux_path` provided)  |
 | `year1`           | `year` metadata for `source1` (if `--output_aux_path` provided)  |
 | `type2`           | `type` metadata for `source2` (if `--output_aux_path` provided)  |
