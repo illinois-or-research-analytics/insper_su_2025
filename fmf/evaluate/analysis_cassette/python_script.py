@@ -139,7 +139,7 @@ def extract_agent_background_from_base_config(base_config: Path) -> str:
         return "sa"
     return "ra"
 
-def generate_metrics(abm_err: Path, output_aux: Path, submit_job_sbatch: Path, edge_list: Path, base_config: Path) -> dict:
+def generate_metrics(abm_err: Path, output_aux: Path, submit_job_sbatch: Path, edge_list: Path, base_config: Path, full_pipe: bool) -> dict:
     """
     Main function to extract various metrics from the provided files.
     Returns a dictionary with the following and generates a csv file.
@@ -160,8 +160,6 @@ def generate_metrics(abm_err: Path, output_aux: Path, submit_job_sbatch: Path, e
         "growth_rate": extract_growth_rate_from_base_config(base_config),
         "agent_environment": extract_agent_background_from_base_config(base_config),
         "alpha": extract_alpha_from_base_config(base_config),
-        "GCC": clustering_coeff.get("gcc"),
-        "ALCC": clustering_coeff.get("alcc"),
         "count_of_superstars": count_number_of_superstars(output_aux),
         "seed_indeg_min": dict_in_degree_distribution.get("seed").get("min"),
         "seed_indeg_Q1": dict_in_degree_distribution.get("seed").get("Q1"),
@@ -178,15 +176,18 @@ def generate_metrics(abm_err: Path, output_aux: Path, submit_job_sbatch: Path, e
         "memory_requested": extract_memory_requested_from_sbatch(submit_job_sbatch),
         "memory_used": extract_memory_used_from_err(abm_err),
     }
+    if full_pipe:
+        metrics['GCC'] = clustering_coeff.get("gcc")
+        metrics['ALCC'] = clustering_coeff.get("alcc")
     return metrics
 
 def extract_metrics_V2(abm_err: Path, output_aux: Path, submit_job_sbatch: Path, 
-                edge_list: Path, base_config: Path, df_metrics: pd.DataFrame = None) -> pd.DataFrame:
+                edge_list: Path, base_config: Path, df_metrics: pd.DataFrame = None, full_pipe: bool = False) -> pd.DataFrame:
     """
     Runs the second version of the cassette, extractig metrics from the files provided by function:
     main_V2 and returns a pd.DataFrame with the metrics.
     """
-    metrics = generate_metrics(abm_err, output_aux, submit_job_sbatch, edge_list, base_config)
+    metrics = generate_metrics(abm_err, output_aux, submit_job_sbatch, edge_list, base_config, full_pipe)
 
     if df_metrics is None:
         df_metrics = pd.DataFrame([metrics])
@@ -269,7 +270,13 @@ def discover_experiments(root: Path) -> Iterator[Path]:
     "it will default to 'experiment_metrics.csv' in the abm_outputs directory." \
     ""
 )
-def cli(abm_outputs: Path, csv_path: Path = None):
+@click.option(
+    "--full-pipe", "full_pipe",
+    is_flag=True,
+    default=False,
+    help="-> If set, the full pipeline will be executed."
+)
+def cli(abm_outputs: Path, csv_path: Path = None, full_pipe: bool = False):
 
     abm_outputs = Path(abm_outputs)
 
@@ -307,7 +314,8 @@ def cli(abm_outputs: Path, csv_path: Path = None):
             submit_job_sbatch=submit_job_sbatch,
             edge_list=edge_list,
             base_config=base_config,
-            df_metrics=metrics_df
+            df_metrics=metrics_df,
+            full_pipe=full_pipe
         )
         evaluated_exp.append(exp_folder.name)
     print(f"Evaluated experiments: {evaluated_exp}\n")

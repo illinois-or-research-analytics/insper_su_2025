@@ -38,7 +38,7 @@ module load python3/3.11.0
 source venv/bin/activate
 pip install -r requirements.txt
 
-python3 cpp_script.py \
+python3 cpp_script.py or python_script.py \
   --abm-outputs /path/to/abm_outputs \
   [--csv-path    /path/to/output.csv] \
   [--full-pipe]
