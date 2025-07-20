@@ -21,10 +21,10 @@ Biblio-strength(i, j) = |T_i ∩ T_j|
 | `source1`          | ID of the first source node                                               |
 | `source2`          | ID of the second source node                                              |
 | `Biblio-strength`  | Between node *i* and *j*                                                  |
-| `type1`            | Type metadata for `source1` (if auxiliary file provided)                  |
-| `year1`            | Year metadata for `source1` (if auxiliary file provided)                  |
-| `type2`            | Type metadata for `source2` (if auxiliary file provided)                  |
-| `year2`            | Year metadata for `source2` (if auxiliary file provided)                  |
+| `type1`            | Type for `source1` (if auxiliary file provided)                           |
+| `year1`            | Year for `source1` (if auxiliary file provided)                           |
+| `type2`            | Type for `source2` (if auxiliary file provided)                           |
+| `year2`            | Year for `source2` (if auxiliary file provided)                           |
 
 ---
 
